@@ -8,7 +8,7 @@ import scipy.optimize as opt
 
 
 class Server:
-    GAME_WELCOME_MESSAGE = "Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n"
+    GAME_WELCOME_MESSAGE = "Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}"
     GAME_END_WINNER_MESSAGE = "Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}"
     GAME_END_DRAW_MESSAGE = "Game over!\nThe correct answer was {answer}!\nWe have a draw!"
     winner = None
@@ -16,6 +16,7 @@ class Server:
     def __init__(self, port, ip):
         self.port = port
         self.ip = ip
+        self.question_generator = RandomQuestionGenerator()
         self.server_socket = socket(socket.AF_INET, socket.SOCK_STREAM)
         self.server_socket.bind((ip, port))
         self.server_socket.listen(2)
@@ -52,9 +53,6 @@ class Server:
             if(players_conections[connected_players] != None) connected_players += 1
         return players_conections
 
-    def generate_random_math_question():
-        pass
-
     def listen_to_player(player_sock, message, answer, player_name, other_player_name):
         player_sock.send(message)
         t_end = time.time() + 60 * 10
@@ -79,8 +77,8 @@ class Server:
         player0_name = player0_sock.recv(512)
         player1_name = player1_Sock.recv(512)
 
-        message = GAME_WELCOME_MESSAGE.format(**{"name0": player0_name, "name1": player1_name})
-        (question, answer) = generate_random_math_question()
+        (question, answer) = question_generator.generate_random_math_question()
+        message = GAME_WELCOME_MESSAGE.format(**{"name0": player0_name, "name1": player1_name, "question": question})
         message = Colors.colored_string(message, Colors.OKBLUE) + Colors.colored_string(question, Colors.OKGREEN)
 
         # actually perform the game
