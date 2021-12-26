@@ -22,6 +22,7 @@ class Server:
     GAME_END_DRAW_MESSAGE = "Game over!\nThe correct answer was {answer}!\nWe have a draw!"
     GAME_OVER_MESSAGE = "Game over, sending out offer requests..."
     FAILED_CONNECTION_MESSAGE = "Player {number} failed to connect properly. Aborting game."
+    CLIENT_BAD_NAME_MESSAGE = "Player {number} name is invalid. Aborting game."
 
     def __init__(self, port, ip):
         self.port = port
@@ -125,11 +126,18 @@ class Server:
         player1_sock.settimeout(0.5)
         player1_name = self.receive_string_message(player1_sock, 256)
 
+        # check for errors in client sent data
         if(player0_name == None):
             print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 0}), Colors.WARNING))
             return None
         if(player1_name == None):
             print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 1}), Colors.WARNING))
+            return None
+        if player0_name[-1] != '\n':
+            print(Colors.colored_string(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 0}), Colors.WARNING))
+            return None
+        if player1_name[-1] != '\n':
+            print(Colors.colored_string(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 1}), Colors.WARNING))
             return None
 
         return (player0_name, player1_name)
@@ -147,8 +155,6 @@ def main():
     ip = sp.get_if_addr(Server.DEV_NETWORK)
     server = Server(port, ip)
     server.run()
-
-   
 
 if __name__ == "__main__":
     main()
