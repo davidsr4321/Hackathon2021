@@ -1,12 +1,7 @@
 
-
-import os
-import socket
 import sys
 import threading
 import time
-
-import socket
 
 from struct import *
 from socket import *
@@ -16,106 +11,89 @@ from Colors import Colors
 
 
 class Client:
+    CLIENT_STARTED_MESSAGE = Colors.colored_string("Client started, listening for offer requests...",Colors.OKCYAN)
+    RECEIVED_ADDRESS_MSG = "Received offer from {address},attempting to connect..."
+    FAILED_TO_CONNECT_TO_SERVER = Colors.colored_string("Couldn't connect to server ): ", Colors.WARNING)
+    PACKING_FORMAT = 'IbH'
+    UDP_DEST_PORT = 13117
+    UTF_FORMAT = 'utf-8'
+    BUFF_SIZE = 1024
+    MAGIC_COOKIE = 0xabcddcba
+    MSG_TYPE = 0x2
+    SELECT_TIMEOUT = 0.5
+
+
     def __init__(self):
+        self.tcp_socket = None
+        self.udp_socket = None
+    
+    # in the first stage the client will receive a udp broadcast, and decrypt it
+    def firstStage(self):
+        print(self.CLIENT_STARTED_MESSAGE)
+        self.udp_socket = socket(AF_INET, SOCK_DGRAM)
+        self.udp_socket.bind(('', self.UDP_DEST_PORT))
+        while 1:
+            data, addr = self.udp_socket.recvfrom(self.BUFF_SIZE)  # buffer size is 1024 bytes
+            magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
+            if (magic_cookie == self.MAGIC_COOKIE) & (msg_type == self.MSG_TYPE):
+                msg = self.RECEIVED_ADDRESS_MSG
+                msg.format(**{"address": addr})
+                msg = Colors.colored_string(msg, Colors.OKGREEN)
+                print(msg)
+                self.udp_socket.close()
+                return addr, server_port
+
+
+    def thirdStage(self):
+        # first thing first: recieve and display the question 
+        question = self.tcp_socket.recv(self.BUFF_SIZE)
+        print(question.decode(self.UTF_FORMAT))
         
-        pass
+        #set the socket to non-blocking in irder to work in paraller
+        self.tcp_socket.setblocking(False)
+        inputs = [self.tcp_socket, sys.stdin]
+        while inputs:
+            # each iteration we will poll info from the sockets, if there is anything to read it will be in 
+            readables, _, exceptional = select.select(inputs, [], inputs, self.SELECT_TIMEOUT)
+            for s in readables:
+                if s==sys.stdin:
+                    # recieve data from user and send it to the server 
+                    userInput =  sys.stdin.readline()
+                    self.tcp_socket.send(userInput.encode(self.UTF_FORMAT))
+                    break 
+            
+                if s==self.tcp_socket:
+                    # recieve data from server -> the game is over 
+                    data = s.recv(self.BUFF_SIZE)
+                    inputs.remove(s)
+                    inputs.remove(sys.stdin)
+                    break
 
-
-    def recv_from_socket(self, socket, flag):
-        data = socket.recv(1024)
-        print(data)
-        flag.set()
-        pass
-
-    def recv_from_user(self, socket):
-        userInfo = input()
-        socket.send(userInfo.encode("utf-8"))
-        pass
-
-    def run(self):
-        # first stage: find an offer
-        server_addr, server_port = self.firstStage()
-
-        # second stage: try to connect to server
-        client_tcp_socket = socket(AF_INET, SOCK_STREAM)
-        try:
-            client_tcp_socket.connect(server_addr, server_port)
-        except socket.error:  # if the connection has failed
-            print(self.FAILED_TO_CONNECT_TO_SERVER)
-        else:
-            # third stage
-            question = client_tcp_socket.recv(1024)
-            print(question)
-            flag = threading.Event()
-            thread0 = threading.Thread(target=self.recv_from_user, args=[client_tcp_socket])
-            thread1 = threading.Thread(target=self.recv_from_socket, args=[client_tcp_socket, flag])
-            thread0.start()
-            thread1.start()
-            flag.wait()
-    pass
-
-def act_as_server(name):
-    s = socket()
-    s.bind(('', 12346))
-    s.listen(5)
-    c, addr = s.accept()
-    print('Got connection from', addr)
-    sys.stdout.flush()
-    c.send(b'1+1=?')
-    print("sending char to client")
-    sys.stdout.flush()
-    time.sleep(10)
-    c.send(b'd')
-    val = c.recv(128)
-    print("recieved a message from client  ")
-    print(val)
-    c.close()
-
-def main():
-    # client = Client()
-    # while True:
-    #     client.run()
-    x = threading.Thread(target=act_as_server, args=(1,))
-
-    x.start()
-    time.sleep(5)
-    client_tcp_socket = socket()
-    port = 12346
-    data = None
-    client_tcp_socket.connect(('127.0.0.1', port))
-    time.sleep(1)
-    question = client_tcp_socket.recv(1024)
-    print(question.decode('utf-8'))
-    # receive question from server and display it
-    print("please enter input: ")
-    sys.stdout.flush()
-
-    client_tcp_socket.setblocking(False)
-    inputs = [client_tcp_socket, sys.stdin]
-    while inputs:
-        readable, _, exceptional = select.select(inputs, [], inputs, 0.5)
-        for s in readable:
-            if s==sys.stdin:
-                data =  sys.stdin.readline()
-                client_tcp_socket.send(data.encode("utf-8"))
-                break 
-            if s==client_tcp_socket:
-            # the client doesn't need to su[[ly any further input
-                data = s.recv(1024)
+            for s in exceptional:
                 inputs.remove(s)
-                inputs.remove(sys.stdin)
-                exceptional.remove(s)
                 break
 
-        for s in exceptional:
-            inputs.remove(s)
-            break
+        print(data.decode(self.UTF_FORMAT))
+        self.tcp_socket.close()
 
-    print(data)
-    client_tcp_socket.close()
-    sys.stderr.flush()
+    def run(self):
+        while True:
+            # first stage: find an offer
+            server_addr, server_port = self.firstStage()
 
+            # second stage: try to connect to serve
+            self.tcp_socket = socket(AF_INET, SOCK_STREAM)
+            try:
+                self.tcp_socket.connect(server_addr, server_port)
+            except socket.error:  # if the connection has failed
+                print(self.FAILED_TO_CONNECT_TO_SERVER)
+            else:
+                # third stage
+                self.thirdStage()
 
-
+def main():
+    client = Client()
+    client.run()
+    
 if __name__ == "__main__":
     main()
