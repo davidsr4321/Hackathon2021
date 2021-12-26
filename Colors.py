@@ -10,4 +10,4 @@ class Colors:
     UNDERLINE = '\033[4m'
 
     def colored_string(str, color):
-        return color + str + ENDC
+        return color + str + Colors.ENDC
