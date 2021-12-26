@@ -4,8 +4,8 @@ from struct import *
 from socket import *
 from threading import *
 import scapy.all as sp
-import RandomQuestionGenerator
-import Colors
+import RandomQuestionGenerator as rqg
+from Colors import Colors
 
 class Server:
     DEV_NETWORK = 'eth1'
@@ -27,17 +27,18 @@ class Server:
     def __init__(self, port, ip):
         self.port = port
         self.ip = ip
-        self.question_generator = RandomQuestionGenerator()
+        self.question_generator = rqg.RandomQuestionGenerator()
         self.WINNER = None
         self.WAITING_FOR_PLAYERS = True
         self.broadcasting_socket = socket(AF_INET, SOCK_DGRAM)
+        self.broadcasting_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         self.server_socket = socket(AF_INET, SOCK_STREAM)
         self.server_socket.bind((ip, port))
-        self.server_socket.listen(2)
+        self.server_socket.listen(self.PLAYERS_COUNT)
         print(Colors.colored_string(self.SERVER_START_MESSAGE + ip, Colors.HEADER))
 
     def run(self):
-        broadcasting_thread = Thread(self.send_out_offers, ())
+        broadcasting_thread = Thread(target = self.send_out_offers, args = ())
         broadcasting_thread.setDaemon(True)
         broadcasting_thread.start()
         while 1:
@@ -59,7 +60,7 @@ class Server:
     def send_out_offers(self):
         while True:
             if self.WAITING_FOR_PLAYERS is True:
-                self.broadcasting_socket.sendto(pack('IbH', self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.port), ('<broadcast>', self.BROADCAST_DEST_PORT))
+                self.broadcasting_socket.sendto(pack('IbH', self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.port), ('255.255.255.255', self.BROADCAST_DEST_PORT))
             else:
                 time.sleep(1)
 
@@ -67,7 +68,8 @@ class Server:
         players_conections = [None, None]
         connected_players = 0
         while connected_players < self.PLAYERS_COUNT:
-            players_conections[connected_players] = self.server_socket.accept()[0]
+            connection, address = self.server_socket.accept()
+            players_conections[connected_players] = connection
             if(players_conections[connected_players] != None):
                 connected_players += 1
         self.WAITING_FOR_PLAYERS = False
@@ -100,8 +102,8 @@ class Server:
 
         # actually perform the game
         game_over = threading.Event()
-        thread0 = Thread(self.listen_to_player, (player0_sock, message, answer, player0_name, player1_name))
-        thread1 = Thread(self.listen_to_player, (player1_sock, message, answer, player1_name, player0_name))
+        thread0 = Thread(target = self.listen_to_player, args = (player0_sock, message, answer, player0_name, player1_name))
+        thread1 = Thread(target = self.listen_to_player, args = (player1_sock, message, answer, player1_name, player0_name))
         thread0.start()
         thread1.start()
         
