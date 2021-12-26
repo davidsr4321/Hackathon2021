@@ -111,8 +111,8 @@ class Server:
 
         # actually perform the game
         game_over = threading.Event()
-        thread0 = Thread(target = self.listen_to_player, args = (player0_sock, message, answer, players_names[0], players_names[1]))
-        thread1 = Thread(target = self.listen_to_player, args = (player1_sock, message, answer, players_names[1], players_names[0]))
+        thread0 = Thread(target = self.listen_to_player, args = (player0_sock, message, answer, players_names[0], players_names[1], game_over))
+        thread1 = Thread(target = self.listen_to_player, args = (player1_sock, message, answer, players_names[1], players_names[0], game_over))
         thread0.start()
         thread1.start()
         
@@ -132,20 +132,20 @@ class Server:
         self.send_string_message(player1_sock, message)
 
     def get_players_names(self, player0_sock, player1_sock):
-        player0_name = self.receive_string_message(player0_sock, 256, 5)
-        player1_name = self.receive_string_message(player1_sock, 256, 0.5)
+        player0_name = self.receive_string_message(player0_sock, 256)
+        player1_name = self.receive_string_message(player1_sock, 256)
 
         # check for errors in client sent data
-        if(player0_name == None):
+        if player0_name == None:
             print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 0}), Colors.WARNING))
             return None
-        if(player1_name == None):
+        if player1_name == None:
             print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 1}), Colors.WARNING))
             return None
-        if player0_name[-1] != '\n':
+        if player0_name[len(player0_name) - 1] != '\n':
             print(Colors.colored_string(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 0}), Colors.WARNING))
             return None
-        if player1_name[-1] != '\n':
+        if player1_name[len(player1_name) - 1] != '\n':
             print(Colors.colored_string(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 1}), Colors.WARNING))
             return None
 
@@ -159,9 +159,9 @@ class Server:
             socket.settimeout(timeout)
         try:
             bytes = socket.recv(size)
+            return bytes.decode(encoding)
         except error:
             return None
-        return bytes.decode(encoding)
         
 
 def main():

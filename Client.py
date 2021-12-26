@@ -16,6 +16,7 @@ class Client:
     FAILED_TO_CONNECT_TO_SERVER = Colors.colored_string("Couldn't connect to server ): ", Colors.WARNING)
     CONNECTION_ERROR = Colors.colored_string("We are sorry to inform you that there were a connection problems ): ", Colors.WARNING)
     ASK_FOR_NAME = Colors.colored_string("\nplease enter your group name: \n",Colors.UNDERLINE)
+    TEAM_NAME = "name\n"
     PACKING_FORMAT = 'IbH'
     UDP_DEST_PORT = 13117
     UTF_FORMAT = 'utf-8'
@@ -48,9 +49,7 @@ class Client:
 
 
     def thirdStage(self):
-        print(self.ASK_FOR_NAME)
-        name = input()
-        sent_length = self.tcp_socket.send(name.encode(self.UTF_FORMAT))
+        sent_length = self.tcp_socket.send(self.TEAM_NAME.encode(self.UTF_FORMAT))
         if sent_length==0:
             print(self.CONNECTION_ERROR)
             return None
