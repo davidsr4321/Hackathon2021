@@ -1,5 +1,4 @@
 
-
 class Colors:
     HEADER = '\033[95m'
     OKBLUE = '\033[94m'
@@ -12,4 +11,5 @@ class Colors:
     UNDERLINE = '\033[4m'
 
     def colored_string(str, color):
-        return color + str + ENDC
+        return color + str + Colors.ENDC
+
