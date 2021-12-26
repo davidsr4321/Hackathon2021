@@ -13,21 +13,22 @@ class Server:
     BROADCAST_DEST_PORT = 13117
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
+    PLAYERS_COUNT = 2
+    ANSWER_SIZE = 1 # byte
+    GAME_DURATION = 10  # seconds
     SERVER_START_MESSAGE = "Server started, listening on IP address "
     GAME_WELCOME_MESSAGE = "Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}"
     GAME_END_WINNER_MESSAGE = "Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}"
     GAME_END_DRAW_MESSAGE = "Game over!\nThe correct answer was {answer}!\nWe have a draw!"
     GAME_OVER_MESSAGE = "Game over, sending out offer requests..."
     FAILED_CONNECTION_MESSAGE = "Player {number} failed to connect properly. Aborting game."
-    ANSWER_SIZE = 1 # byte
-    GAME_DURATION = 10  # seconds
-    WAITING_FOR_PLAYERS = True
 
     def __init__(self, port, ip):
         self.port = port
         self.ip = ip
         self.question_generator = RandomQuestionGenerator()
         self.WINNER = None
+        self.WAITING_FOR_PLAYERS = True
         self.broadcasting_socket = socket(AF_INET, SOCK_DGRAM)
         self.server_socket = socket(AF_INET, SOCK_STREAM)
         self.server_socket.bind((ip, port))
@@ -57,14 +58,14 @@ class Server:
     def send_out_offers(self):
         while True:
             if self.WAITING_FOR_PLAYERS is True:
-                self.broadcasting_socket.sendto(pack(self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.port), ('<broadcast>', self.BROADCAST_DEST_PORT))
+                self.broadcasting_socket.sendto(pack('IbH', self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.port), ('<broadcast>', self.BROADCAST_DEST_PORT))
             else:
                 time.sleep(1)
 
     def listen(self):
         players_conections = [None, None]
         connected_players = 0
-        while connected_players < 2:
+        while connected_players < self.PLAYERS_COUNT:
             players_conections[connected_players] = self.server_socket.accept()[0]
             if(players_conections[connected_players] != None):
                 connected_players += 1
@@ -72,9 +73,9 @@ class Server:
         return players_conections
 
     def listen_to_player(self, player_sock, message, answer, player_name, other_player_name ,game_over):
-        player_sock.send(message)
+        self.send_string_message(player_sock, message)
         player_sock.settimeout(self.GAME_DURATION)
-        player_answer = player_sock.recv(self.ANSWER_SIZE)
+        player_answer = self.receive_string_message(player_sock, self.ANSWER_SIZE)
         if player_answer != None:
             if player_answer == answer:
                 self.WINNER = player_name
@@ -115,14 +116,14 @@ class Server:
             message = self.GAME_END_DRAW_MESSAGE.format(**{"answer": answer})
         message = Colors.colored_string(message, Colors.OKCYAN)
 
-        player0_sock.send(message)
-        player1_sock.send(message)
+        self.send_string_message(player0_sock, message)
+        self.send_string_message(player1_sock, message)
 
     def get_players_names(self, player0_sock, player1_sock):
         player0_sock.settimeout(10)
-        player0_name = player0_sock.recv(512)
+        player0_name = self.receive_string_message(player0_sock, 256)
         player1_sock.settimeout(0.5)
-        player1_name = player1_sock.recv(512)
+        player1_name = self.receive_string_message(player1_sock, 256)
 
         if(player0_name == None):
             print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 0}), Colors.WARNING))
@@ -132,11 +133,18 @@ class Server:
             return None
 
         return (player0_name, player1_name)
+
+    def send_string_message(self, socket, message, encoding='utf8'):
+        socket.send(message.encode(encoding))
+
+    def receive_string_message(self, socket, size, encoding='utf8'):
+        bytes = socket.recv(size)
+        return bytes.decode(encoding)
         
 
 def main():
     port = 13117
-    ip = sp.get_if_addr(DEV_NETWORK)
+    ip = sp.get_if_addr(Server.DEV_NETWORK)
     server = Server(port, ip)
     server.run()
 
