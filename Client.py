@@ -14,6 +14,8 @@ class Client:
     CLIENT_STARTED_MESSAGE = Colors.colored_string("Client started, listening for offer requests...",Colors.OKCYAN)
     RECEIVED_ADDRESS_MSG = "Received offer from {address},attempting to connect..."
     FAILED_TO_CONNECT_TO_SERVER = Colors.colored_string("Couldn't connect to server ): ", Colors.WARNING)
+    CONNECTION_ERROR = Colors.colored_string("We are sorry to inform you that there were a connection problems ): ", Colors.WARNING)
+    ASK_FOR_NAME = Colors.colored_string("\nplease enter your group name: \n",Colors.UNDERLINE)
     PACKING_FORMAT = 'IbH'
     UDP_DEST_PORT = 13117
     UTF_FORMAT = 'utf-8'
@@ -31,20 +33,28 @@ class Client:
     def firstStage(self):
         print(self.CLIENT_STARTED_MESSAGE)
         self.udp_socket = socket(AF_INET, SOCK_DGRAM)
+        self.udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1) # TODO: DELETE WHEN NOT TESTING!
         self.udp_socket.bind(('', self.UDP_DEST_PORT))
         while 1:
             data, addr = self.udp_socket.recvfrom(self.BUFF_SIZE)  # buffer size is 1024 bytes
             magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
             if (magic_cookie == self.MAGIC_COOKIE) & (msg_type == self.MSG_TYPE):
                 msg = self.RECEIVED_ADDRESS_MSG
-                msg.format(**{"address": addr})
+                msg = msg.format(**{"address": addr})
                 msg = Colors.colored_string(msg, Colors.OKGREEN)
                 print(msg)
                 self.udp_socket.close()
-                return addr, server_port
+                return addr[0], server_port
 
 
     def thirdStage(self):
+        print(self.ASK_FOR_NAME)
+        name = input()
+        sent_length = self.tcp_socket.send(name.encode(self.UTF_FORMAT))
+        if sent_length==0:
+            print(self.CONNECTION_ERROR)
+            return None
+
         # first thing first: recieve and display the question 
         question = self.tcp_socket.recv(self.BUFF_SIZE)
         print(question.decode(self.UTF_FORMAT))
@@ -84,8 +94,8 @@ class Client:
             # second stage: try to connect to serve
             self.tcp_socket = socket(AF_INET, SOCK_STREAM)
             try:
-                self.tcp_socket.connect(server_addr, server_port)
-            except socket.error:  # if the connection has failed
+                self.tcp_socket.connect((server_addr, server_port))
+            except error:  # if the connection has failed
                 print(self.FAILED_TO_CONNECT_TO_SERVER)
             else:
                 # third stage

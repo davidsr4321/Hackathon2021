@@ -16,6 +16,7 @@ class Server:
     PLAYERS_COUNT = 2
     ANSWER_SIZE = 1 # byte
     GAME_DURATION = 10  # seconds
+    BROADCAST_TIME_INTERVAL = 1 # seconds
     SERVER_START_MESSAGE = "Server started, listening on IP address "
     GAME_WELCOME_MESSAGE = "Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}"
     GAME_END_WINNER_MESSAGE = "Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}"
@@ -24,43 +25,52 @@ class Server:
     FAILED_CONNECTION_MESSAGE = "Player {number} failed to connect properly. Aborting game."
     CLIENT_BAD_NAME_MESSAGE = "Player {number} name is invalid. Aborting game."
 
-    def __init__(self, port, ip):
-        self.port = port
+    def __init__(self, ip, tcp_port, udp_port):
+        self.tcp_port = tcp_port
         self.ip = ip
         self.question_generator = rqg.RandomQuestionGenerator()
         self.WINNER = None
         self.WAITING_FOR_PLAYERS = True
         self.broadcasting_socket = socket(AF_INET, SOCK_DGRAM)
         self.broadcasting_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
+        self.broadcasting_socket.bind((ip, udp_port))
         self.server_socket = socket(AF_INET, SOCK_STREAM)
-        self.server_socket.bind((ip, port))
+        self.server_socket.bind((ip, tcp_port))
         self.server_socket.listen(self.PLAYERS_COUNT)
         print(Colors.colored_string(self.SERVER_START_MESSAGE + ip, Colors.HEADER))
 
+    def close_server(self):
+        self.server_socket.close()
+        self.broadcasting_socket.close()
+
     def run(self):
-        broadcasting_thread = Thread(target = self.send_out_offers, args = ())
-        broadcasting_thread.setDaemon(True)
-        broadcasting_thread.start()
-        while 1:
-            # wait for 2 players to connect
-            self.WAITING_FOR_PLAYERS = True
-            players_conections = self.listen()
+        try:
+            broadcasting_thread = Thread(target = self.send_out_offers, args = ())
+            broadcasting_thread.setDaemon(True)
+            broadcasting_thread.start()
+            while 1:
+                # wait for 2 players to connect
+                self.WAITING_FOR_PLAYERS = True
+                players_conections = self.listen()
 
-            # wait 10 seconds
-            time.sleep(10)
+                # wait 10 seconds
+                time.sleep(1)
 
-            # begin the game
-            self.game_mode(players_conections)
+                # begin the game
+                self.game_mode(players_conections)
 
-            # close connections with players
-            players_conections[0].close()
-            players_conections[1].close()
-            print(Colors.colored_string(self.GAME_OVER_MESSAGE, Colors.OKBLUE))
+                # close connections with players
+                players_conections[0].close()
+                players_conections[1].close()
+                print(Colors.colored_string(self.GAME_OVER_MESSAGE, Colors.OKBLUE))
+        except error:
+            self.close_server()
 
     def send_out_offers(self):
         while True:
             if self.WAITING_FOR_PLAYERS is True:
-                self.broadcasting_socket.sendto(pack('IbH', self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.port), ('255.255.255.255', self.BROADCAST_DEST_PORT))
+                self.broadcasting_socket.sendto(pack('IbH', self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.tcp_port), ('255.255.255.255', self.BROADCAST_DEST_PORT))
+                time.sleep(self.BROADCAST_TIME_INTERVAL)
             else:
                 time.sleep(1)
 
@@ -77,8 +87,7 @@ class Server:
 
     def listen_to_player(self, player_sock, message, answer, player_name, other_player_name ,game_over):
         self.send_string_message(player_sock, message)
-        player_sock.settimeout(self.GAME_DURATION)
-        player_answer = self.receive_string_message(player_sock, self.ANSWER_SIZE)
+        player_answer = self.receive_string_message(player_sock, self.ANSWER_SIZE, self.GAME_DURATION)
         if player_answer != None:
             if player_answer == answer:
                 self.WINNER = player_name
@@ -92,18 +101,18 @@ class Server:
         player1_sock = players_conections[1]
 
         # getting the names of the 2 players
-        (player0_name, player1_name) = self.get_players_names(player0_sock, player1_sock)
-        if (player0_name, player1_name) == None:
+        players_names = self.get_players_names(player0_sock, player1_sock)
+        if players_names == None:
             return
 
         (question, answer) = self.question_generator.generate_random_math_question()
-        message = self.GAME_WELCOME_MESSAGE.format(**{"name0": player0_name, "name1": player1_name, "question": question})
+        message = self.GAME_WELCOME_MESSAGE.format(**{"name0": players_names[0], "name1": players_names[1], "question": question})
         message = Colors.colored_string(message, Colors.OKBLUE) + Colors.colored_string(question, Colors.OKGREEN)
 
         # actually perform the game
         game_over = threading.Event()
-        thread0 = Thread(target = self.listen_to_player, args = (player0_sock, message, answer, player0_name, player1_name))
-        thread1 = Thread(target = self.listen_to_player, args = (player1_sock, message, answer, player1_name, player0_name))
+        thread0 = Thread(target = self.listen_to_player, args = (player0_sock, message, answer, players_names[0], players_names[1]))
+        thread1 = Thread(target = self.listen_to_player, args = (player1_sock, message, answer, players_names[1], players_names[0]))
         thread0.start()
         thread1.start()
         
@@ -123,10 +132,8 @@ class Server:
         self.send_string_message(player1_sock, message)
 
     def get_players_names(self, player0_sock, player1_sock):
-        player0_sock.settimeout(10)
-        player0_name = self.receive_string_message(player0_sock, 256)
-        player1_sock.settimeout(0.5)
-        player1_name = self.receive_string_message(player1_sock, 256)
+        player0_name = self.receive_string_message(player0_sock, 256, 5)
+        player1_name = self.receive_string_message(player1_sock, 256, 0.5)
 
         # check for errors in client sent data
         if(player0_name == None):
@@ -147,15 +154,19 @@ class Server:
     def send_string_message(self, socket, message, encoding='utf8'):
         socket.send(message.encode(encoding))
 
-    def receive_string_message(self, socket, size, encoding='utf8'):
-        bytes = socket.recv(size)
+    def receive_string_message(self, socket, size, timeout=None, encoding='utf8'):
+        if timeout != None:
+            socket.settimeout(timeout)
+        try:
+            bytes = socket.recv(size)
+        except error:
+            return None
         return bytes.decode(encoding)
         
 
 def main():
-    port = 13117
     ip = sp.get_if_addr(Server.DEV_NETWORK)
-    server = Server(port, ip)
+    server = Server(ip, 6666, 7777)
     server.run()
 
 if __name__ == "__main__":
