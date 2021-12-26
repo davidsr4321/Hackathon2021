@@ -3,11 +3,12 @@ import time
 import random
 from socket import *
 from threading import *
-import ipaddress
-import scipy.optimize as opt
+import scapy as sp
 
 
 class Server:
+    DEV_NETWORK = 'eth1'
+    TEST_NETWORK = 'eth2'
     BROADCAST_DEST_PORT = 13117
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
@@ -16,6 +17,7 @@ class Server:
     GAME_END_DRAW_MESSAGE = "Game over!\nThe correct answer was {answer}!\nWe have a draw!"
     GAME_OVER_MESSAGE = "Game over, sending out offer requests..."
     FAILED_CONNECTION_MESSAGE = "Player {number} failed to connect properly. Aborting game."
+    ANSWER_SIZE = 1 # byte
     GAME_DURATION = 10  # seconds
     WINNER = None
     WAITING_FOR_PLAYERS = true
@@ -40,7 +42,7 @@ class Server:
             players_conections = listen()
 
             # wait 10 seconds
-            wait(10)
+            time.sleep(10)
 
             # begin the game
             game_mode(players_conections)
@@ -54,12 +56,13 @@ class Server:
         while 1:
             if WAITING_FOR_PLAYERS is true:
                 broadcasting_socket.sendto(pack(MAGIC_COOKIE, MESSAGE_TYPE, port), ('<broadcast>', BROADCAST_DEST_PORT))
+            else:
+                time.sleep(1)
 
     def listen():
         players_conections = [None, None]
         connected_players = 0
         while connected_players < 2:
-            server_socket.settimeout(60)
             players_conections[connected_players] = server_socket.accept()[0]
             if(players_conections[connected_players] != None):
                 connected_players += 1
@@ -69,7 +72,7 @@ class Server:
     def listen_to_player(player_sock, message, answer, player_name, other_player_name ,game_over):
         player_sock.send(message)
         player_sock.settimeout(GAME_DURATION)
-        player_answer = player_sock.recv(128)
+        player_answer = player_sock.recv(ANSWER_SIZE)
         if player_answer != None:
             if player_answer == answer:
                 WINNER = player_name
@@ -78,7 +81,6 @@ class Server:
         game_over.set()
 
     def game_mode(players_conections):
-        global WINNER
         WINNER = None
         player0_sock = players_conections[0]
         player1_Sock = players_conections[1]
@@ -102,7 +104,9 @@ class Server:
         # main thread waits for the game to end
         game_over.wait(GAME_DURATION)
 
-        # announce the results
+        announce_results(answer)
+
+    def announce_results(answer):
         if WINNER != None:
             message = GAME_END_WINNER_MESSAGE.format(**{"answer": answer, "winner": WINNER})
         else:
@@ -126,17 +130,11 @@ class Server:
             return None
 
         return (player0_name, player1_name)
-
-    def wait(time_in_seconds):
-        t_end = time.time() + time_in_seconds
-            while time.time() < t_end:
-                pass
-
         
 
 def main():
     port = 13117
-    ip = ipaddress.ip_address(u'172.0.0.1') #fix ip address
+    ip = sp.get_if_addr(DEV_NETWORK)
     server = Server(port, ip)
     server.run()
 
