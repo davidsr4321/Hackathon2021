@@ -1,7 +1,7 @@
 
 import sys
-import threading
-import time
+import termios
+import tty
 
 from struct import *
 from socket import *
@@ -23,7 +23,8 @@ class Client:
     PACKING_FORMAT = 'IbH'
     UDP_DEST_PORT = 13117
     UTF_FORMAT = 'utf-8'
-    BUFF_SIZE = 1024
+    TCP_BUFF_SIZE = 1024
+    UDP_BUFF_SIZE = 8
     MAGIC_COOKIE = 0xabcddcba
     MSG_TYPE = 0x2
     SELECT_TIMEOUT = 0.5
@@ -39,7 +40,7 @@ class Client:
     # in the first stage the client will receive a udp broadcast, and decrypt it
     def find_offer(self):
         while 1:
-            data, addr = self.udp_socket.recvfrom(self.BUFF_SIZE)
+            data, addr = self.udp_socket.recvfrom(self.UDP_BUFF_SIZE)
             try:
                 magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
             except:
@@ -59,7 +60,7 @@ class Client:
             return None
 
         # recieve and display the question 
-        question = self.tcp_socket.recv(self.BUFF_SIZE)
+        question = self.tcp_socket.recv(self.TCP_BUFF_SIZE)
         print(question.decode(self.UTF_FORMAT))
         
         # set the socket to non-blocking in order to work in paraller
@@ -80,7 +81,7 @@ class Client:
                 
                     if s==self.tcp_socket:
                         # recieve data from server -> the game is over 
-                        data = s.recv(self.BUFF_SIZE)
+                        data = s.recv(self.TCP_BUFF_SIZE)
                         print(data.decode(self.UTF_FORMAT))
                         inputs.remove(s)
                         inputs.remove(sys.stdin)
@@ -91,13 +92,11 @@ class Client:
                     break
         except error: 
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, previous_settings)
-            client_tcp_socket.setblocking(True)
             self.tcp_socket.close()
             raise(error)
         else:
             termios.tcsetattr(sys.stdin, termios.TCSADRAIN, previous_settings)
-            client_tcp_socket.setblocking(True)
-            self.tcp_socket.close()                    
+            self.tcp_socket.close()
 
     def run(self):
         print(self.CLIENT_STARTED_MESSAGE)
@@ -107,6 +106,8 @@ class Client:
                 server_addr, server_port = self.find_offer()
                 if (server_addr!=None):
                     # second stage: try to connect to serve
+                    comp = server_addr.split('.')
+                    server_addr = "172.1."+comp[2]+"."+comp[3]
                     self.tcp_socket = socket(AF_INET, SOCK_STREAM)
                     try:
                         self.tcp_socket.connect((server_addr, server_port))
@@ -118,12 +119,12 @@ class Client:
                         self.play_game()
                         print(self.CLIENT_CONTINUE_MESSAGE)
             except KeyboardInterrupt:
-                self.close_client()
+                self.close()
                 print(self.EXIT_MSG)
                 break            
             
             except error:
-                self.close_client()
+                self.close()
 
     def close(self):
         try:
@@ -132,12 +133,11 @@ class Client:
             pass
        
         try:
-            self.tcp_socket.close()
+            if self.tcp_socket != None:
+                self.tcp_socket.close()
         except error:
             pass
         
-        
-
 def main():
     client = Client()
     client.run()
