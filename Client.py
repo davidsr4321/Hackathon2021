@@ -33,7 +33,7 @@ class Client:
         self.udp_socket = socket(AF_INET, SOCK_DGRAM)
         self.udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1) # TODO: DELETE WHEN NOT TESTING!
         self.udp_socket.bind(('', self.UDP_DEST_PORT))
-        self.tcp_socket = socket(AF_INET, SOCK_STREAM)
+        self.tcp_socket = None
     
        
     # in the first stage the client will receive a udp broadcast, and decrypt it
@@ -65,29 +65,39 @@ class Client:
         # set the socket to non-blocking in order to work in paraller
         self.tcp_socket.setblocking(False)
         inputs = [self.tcp_socket, sys.stdin]
-        while inputs:
-            # each iteration we will poll info from the sockets, if there is anything to read it will be in 
-            readables, _, exceptional = select.select(inputs, [], inputs, self.SELECT_TIMEOUT)
-            for s in readables:
-                if s==sys.stdin:
-                    # recieve data from user and send it to the server 
-                    userInput =  sys.stdin.readline()
-                    self.tcp_socket.send(userInput.encode(self.UTF_FORMAT))
-                    break 
-            
-                if s==self.tcp_socket:
-                    # recieve data from server -> the game is over 
-                    data = s.recv(self.BUFF_SIZE)
+        previous_settings = termios.tcgetattr(sys.stdin)
+        tty.setcbreak(sys.stdin.fileno())
+        try:
+            while inputs:
+                # each iteration we will poll info from the sockets, if there is anything to read it will be in 
+                readables, _, exceptional = select.select(inputs, [], inputs, self.SELECT_TIMEOUT)
+                for s in readables:
+                    if s==sys.stdin:
+                        # recieve data from user and send it to the server 
+                        userInput =  sys.stdin.read(1)
+                        self.tcp_socket.send(userInput.encode(self.UTF_FORMAT))
+                        break 
+                
+                    if s==self.tcp_socket:
+                        # recieve data from server -> the game is over 
+                        data = s.recv(self.BUFF_SIZE)
+                        print(data.decode(self.UTF_FORMAT))
+                        inputs.remove(s)
+                        inputs.remove(sys.stdin)
+                        break
+
+                for s in exceptional:
                     inputs.remove(s)
-                    inputs.remove(sys.stdin)
                     break
-
-            for s in exceptional:
-                inputs.remove(s)
-                break
-
-        print(data.decode(self.UTF_FORMAT))
-        self.tcp_socket.close()
+        except error: 
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, previous_settings)
+            client_tcp_socket.setblocking(True)
+            self.tcp_socket.close()
+            raise(error)
+        else:
+            termios.tcsetattr(sys.stdin, termios.TCSADRAIN, previous_settings)
+            client_tcp_socket.setblocking(True)
+            self.tcp_socket.close()                    
 
     def run(self):
         print(self.CLIENT_STARTED_MESSAGE)
@@ -97,6 +107,7 @@ class Client:
                 server_addr, server_port = self.find_offer()
                 if (server_addr!=None):
                     # second stage: try to connect to serve
+                    self.tcp_socket = socket(AF_INET, SOCK_STREAM)
                     try:
                         self.tcp_socket.connect((server_addr, server_port))
                     except error:  # if the connection has failed
