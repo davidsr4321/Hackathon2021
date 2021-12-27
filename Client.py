@@ -38,7 +38,10 @@ class Client:
         self.udp_socket.bind(('', self.UDP_DEST_PORT))
         while 1:
             data, addr = self.udp_socket.recvfrom(self.BUFF_SIZE)
-            magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
+            try:
+                magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
+            except:
+                return None, None
             if (magic_cookie == self.MAGIC_COOKIE) & (msg_type == self.MSG_TYPE):
                 msg = self.RECEIVED_ADDRESS_MSG
                 msg = msg.format(**{"address": addr})
@@ -90,22 +93,26 @@ class Client:
             while True:
                 # first stage: find an offer
                 server_addr, server_port = self.find_offer()
-
-                # second stage: try to connect to serve
-                self.tcp_socket = socket(AF_INET, SOCK_STREAM)
-                try:
-                    self.tcp_socket.connect((server_addr, server_port))
-                except error:  # if the connection has failed
-                    print(self.FAILED_TO_CONNECT_TO_SERVER)
-                else:
-                    # third stage
-                    self.play_game()
+                if (server_addr!=None):
+                    # second stage: try to connect to serve
+                    self.tcp_socket = socket(AF_INET, SOCK_STREAM)
+                    try:
+                        self.tcp_socket.connect((server_addr, server_port))
+                    except error:  # if the connection has failed
+                        print(self.FAILED_TO_CONNECT_TO_SERVER)
+                    else:
+                        # third stage
+                        self.play_game()
         except error:
             self.close_client()
 
     def close_client(self):
-        self.tcp_socket.close()
-        self.udp_socket.close()
+        try:
+            self.tcp_socket.close()
+            self.udp_socket.close()
+        except:
+            pass
+        
 
 def main():
     client = Client()
