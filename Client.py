@@ -13,12 +13,13 @@ from Colors import Colors
 class Client:
     CLIENT_STARTED_MESSAGE = Colors.colored_string("Client started, listening for offer requests...",Colors.OKCYAN)
     CLIENT_CONTINUE_MESSAGE = Colors.colored_string("listening for offer requests...",Colors.OKCYAN)
+    LISTENING_MESSAGE = Colors.colored_string("Listening for offer requests...",Colors.OKCYAN)
     RECEIVED_ADDRESS_MSG = "Received offer from {address},attempting to connect..."
     FAILED_TO_CONNECT_TO_SERVER = Colors.colored_string("Couldn't connect to server ): ", Colors.WARNING)
     CONNECTION_ERROR = Colors.colored_string("We are sorry to inform you that there were a connection problems ): ", Colors.WARNING)
     ASK_FOR_NAME = Colors.colored_string("\nplease enter your group name: \n",Colors.UNDERLINE)
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
-    TEAM_NAME = "name\n"
+    TEAM_NAME = "IdanDavid@@\n"
     PACKING_FORMAT = 'IbH'
     UDP_DEST_PORT = 13117
     UTF_FORMAT = 'utf-8'
@@ -29,12 +30,12 @@ class Client:
 
 
     def __init__(self):
-        self.tcp_socket = None
         self.udp_socket = socket(AF_INET, SOCK_DGRAM)
         self.udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1) # TODO: DELETE WHEN NOT TESTING!
         self.udp_socket.bind(('', self.UDP_DEST_PORT))
         self.tcp_socket = socket(AF_INET, SOCK_STREAM)
     
+       
     # in the first stage the client will receive a udp broadcast, and decrypt it
     def find_offer(self):
         while 1:
@@ -113,7 +114,7 @@ class Client:
             except error:
                 self.close_client()
 
-    def close_client(self):
+    def close(self):
         try:
             self.udp_socket.close()
         except error:
