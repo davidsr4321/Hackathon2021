@@ -106,6 +106,8 @@ class Client:
                 server_addr, server_port = self.find_offer()
                 if (server_addr!=None):
                     # second stage: try to connect to serve
+                    comp = server_addr.split('.')
+                    server_addr = "172.1."+comp[2]+"."+comp[3]
                     self.tcp_socket = socket(AF_INET, SOCK_STREAM)
                     try:
                         self.tcp_socket.connect((server_addr, server_port))
