@@ -31,13 +31,13 @@ class Client:
         self.udp_socket = None
     
     # in the first stage the client will receive a udp broadcast, and decrypt it
-    def firstStage(self):
+    def find_offer(self):
         print(self.CLIENT_STARTED_MESSAGE)
         self.udp_socket = socket(AF_INET, SOCK_DGRAM)
         self.udp_socket.setsockopt(SOL_SOCKET, SO_REUSEPORT, 1) # TODO: DELETE WHEN NOT TESTING!
         self.udp_socket.bind(('', self.UDP_DEST_PORT))
         while 1:
-            data, addr = self.udp_socket.recvfrom(self.BUFF_SIZE)  # buffer size is 1024 bytes
+            data, addr = self.udp_socket.recvfrom(self.BUFF_SIZE)
             magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
             if (magic_cookie == self.MAGIC_COOKIE) & (msg_type == self.MSG_TYPE):
                 msg = self.RECEIVED_ADDRESS_MSG
@@ -48,17 +48,17 @@ class Client:
                 return addr[0], server_port
 
 
-    def thirdStage(self):
+    def play_game(self):
         sent_length = self.tcp_socket.send(self.TEAM_NAME.encode(self.UTF_FORMAT))
-        if sent_length==0:
+        if sent_length == 0:
             print(self.CONNECTION_ERROR)
             return None
 
-        # first thing first: recieve and display the question 
+        # recieve and display the question 
         question = self.tcp_socket.recv(self.BUFF_SIZE)
         print(question.decode(self.UTF_FORMAT))
         
-        #set the socket to non-blocking in irder to work in paraller
+        # set the socket to non-blocking in order to work in paraller
         self.tcp_socket.setblocking(False)
         inputs = [self.tcp_socket, sys.stdin]
         while inputs:
@@ -86,19 +86,26 @@ class Client:
         self.tcp_socket.close()
 
     def run(self):
-        while True:
-            # first stage: find an offer
-            server_addr, server_port = self.firstStage()
+        try:
+            while True:
+                # first stage: find an offer
+                server_addr, server_port = self.find_offer()
 
-            # second stage: try to connect to serve
-            self.tcp_socket = socket(AF_INET, SOCK_STREAM)
-            try:
-                self.tcp_socket.connect((server_addr, server_port))
-            except error:  # if the connection has failed
-                print(self.FAILED_TO_CONNECT_TO_SERVER)
-            else:
-                # third stage
-                self.thirdStage()
+                # second stage: try to connect to serve
+                self.tcp_socket = socket(AF_INET, SOCK_STREAM)
+                try:
+                    self.tcp_socket.connect((server_addr, server_port))
+                except error:  # if the connection has failed
+                    print(self.FAILED_TO_CONNECT_TO_SERVER)
+                else:
+                    # third stage
+                    self.play_game()
+        except error:
+            self.close_client()
+
+    def close_client(self):
+        self.tcp_socket.close()
+        self.udp_socket.close()
 
 def main():
     client = Client()
