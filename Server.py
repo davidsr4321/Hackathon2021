@@ -54,7 +54,7 @@ class Server:
                 players_conections = self.listen()
 
                 # wait 10 seconds
-                time.sleep(1)
+                time.sleep(5)
 
                 # begin the game
                 self.game_mode(players_conections)
@@ -88,10 +88,10 @@ class Server:
     def listen_to_player(self, player_sock, message, answer, player_name, other_player_name ,game_over):
         self.send_string_message(player_sock, message)
         player_answer = self.receive_string_message(player_sock, self.ANSWER_SIZE, self.GAME_DURATION)
-        if player_answer != None:
+        if player_answer != None and self.WINNER == None:
             if player_answer == answer:
                 self.WINNER = player_name
-            elif self.WINNER :
+            elif self.WINNER == None:
                 self.WINNER = other_player_name
         game_over.set()
 
@@ -107,7 +107,7 @@ class Server:
 
         (question, answer) = self.question_generator.generate_random_math_question()
         message = self.GAME_WELCOME_MESSAGE.format(**{"name0": players_names[0], "name1": players_names[1], "question": question})
-        message = Colors.colored_string(message, Colors.OKBLUE) + Colors.colored_string(question, Colors.OKGREEN)
+        message = Colors.colored_string(message, Colors.OKBLUE)
 
         # actually perform the game
         game_over = threading.Event()
@@ -132,8 +132,8 @@ class Server:
         self.send_string_message(player1_sock, message)
 
     def get_players_names(self, player0_sock, player1_sock):
-        player0_name = self.receive_string_message(player0_sock, 256)
-        player1_name = self.receive_string_message(player1_sock, 256)
+        player0_name = self.receive_string_message(player0_sock, 256, 5)
+        player1_name = self.receive_string_message(player1_sock, 256, 5)
 
         # check for errors in client sent data
         if player0_name == None:
