@@ -8,8 +8,6 @@ import RandomQuestionGenerator as rqg
 from Colors import Colors
 
 class Server:
-    DEV_NETWORK = 'eth1'
-    TEST_NETWORK = 'eth2'
     BROADCAST_DEST_PORT = 13117
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
@@ -17,13 +15,21 @@ class Server:
     ANSWER_SIZE = 1 # byte
     GAME_DURATION = 10  # seconds
     BROADCAST_TIME_INTERVAL = 1 # seconds
-    SERVER_START_MESSAGE = "Server started, listening on IP address "
-    GAME_WELCOME_MESSAGE = "Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}"
-    GAME_END_WINNER_MESSAGE = "Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}"
-    GAME_END_DRAW_MESSAGE = "Game over!\nThe correct answer was {answer}!\nWe have a draw!"
-    GAME_OVER_MESSAGE = "Game over, sending out offer requests..."
-    FAILED_CONNECTION_MESSAGE = "Player {number} failed to connect properly. Aborting game."
-    CLIENT_BAD_NAME_MESSAGE = "Player {number} name is invalid. Aborting game."
+    BROADCAST_DEST_IP = '255.255.255.255'
+    DEV_NETWORK = 'eth1'
+    TEST_NETWORK = 'eth2'
+    ENCODING = 'utf8'
+    PACKING_FORMAT = 'IbH'
+    WAITING_FOR_NAME_TIME = 5 # seconds
+    END_OF_NAME = '\n'
+    SERVER_START_MESSAGE = Colors.colored_string("Server started, listening on IP address ", Colors.HEADER)
+    GAME_WELCOME_MESSAGE = Colors.colored_string("Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}", Colors.OKBLUE)
+    GAME_END_WINNER_MESSAGE = Colors.colored_string("Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}", Colors.OKCYAN)
+    GAME_END_DRAW_MESSAGE = Colors.colored_string("Game over!\nThe correct answer was {answer}!\nWe have a draw!", Colors.OKCYAN)
+    GAME_OVER_MESSAGE = Colors.colored_string("Game over, sending out offer requests...", Colors.OKBLUE)
+    CLIENT_PREMATURE_DISCONNECTION_MESSAGE = Colors.colored_string("Client prematurely disconnected", Colors.WARNING)
+    FAILED_CONNECTION_MESSAGE = Colors.colored_string("Player {number} failed to connect properly. Aborting game.", Colors.WARNING)
+    CLIENT_BAD_NAME_MESSAGE = Colors.colored_string("Player {number} name is invalid. Aborting game.", Colors.WARNING)
 
     def __init__(self, ip, tcp_port, udp_port):
         self.tcp_port = tcp_port
@@ -33,11 +39,10 @@ class Server:
         self.WAITING_FOR_PLAYERS = True
         self.broadcasting_socket = socket(AF_INET, SOCK_DGRAM)
         self.broadcasting_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
-        self.broadcasting_socket.bind((ip, udp_port))
         self.server_socket = socket(AF_INET, SOCK_STREAM)
         self.server_socket.bind((ip, tcp_port))
         self.server_socket.listen(self.PLAYERS_COUNT)
-        print(Colors.colored_string(self.SERVER_START_MESSAGE + ip, Colors.HEADER))
+        print(self.SERVER_START_MESSAGE)
 
     def close_server(self):
         self.server_socket.close()
@@ -62,14 +67,15 @@ class Server:
                 # close connections with players
                 players_conections[0].close()
                 players_conections[1].close()
-                print(Colors.colored_string(self.GAME_OVER_MESSAGE, Colors.OKBLUE))
-        except error:
+                print(self.GAME_OVER_MESSAGE)
+        except KeyboardInterrupt:
             self.close_server()
 
     def send_out_offers(self):
         while True:
             if self.WAITING_FOR_PLAYERS is True:
-                self.broadcasting_socket.sendto(pack('IbH', self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.tcp_port), ('255.255.255.255', self.BROADCAST_DEST_PORT))
+                self.broadcasting_socket.sendto(pack(self.PACKING_FORMAT, self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.tcp_port),
+                                                (self.BROADCAST_DEST_IP, self.BROADCAST_DEST_PORT))
                 time.sleep(self.BROADCAST_TIME_INTERVAL)
             else:
                 time.sleep(1)
@@ -78,7 +84,7 @@ class Server:
         players_conections = [None, None]
         connected_players = 0
         while connected_players < self.PLAYERS_COUNT:
-            connection, address = self.server_socket.accept()
+            connection, _ = self.server_socket.accept()
             players_conections[connected_players] = connection
             if(players_conections[connected_players] != None):
                 connected_players += 1
@@ -107,7 +113,6 @@ class Server:
 
         (question, answer) = self.question_generator.generate_random_math_question()
         message = self.GAME_WELCOME_MESSAGE.format(**{"name0": players_names[0], "name1": players_names[1], "question": question})
-        message = Colors.colored_string(message, Colors.OKBLUE)
 
         # actually perform the game
         game_over = threading.Event()
@@ -126,35 +131,37 @@ class Server:
             message = self.GAME_END_WINNER_MESSAGE.format(**{"answer": answer, "winner": self.WINNER})
         else:
             message = self.GAME_END_DRAW_MESSAGE.format(**{"answer": answer})
-        message = Colors.colored_string(message, Colors.OKCYAN)
 
         self.send_string_message(player0_sock, message)
         self.send_string_message(player1_sock, message)
 
     def get_players_names(self, player0_sock, player1_sock):
-        player0_name = self.receive_string_message(player0_sock, 256, 5)
-        player1_name = self.receive_string_message(player1_sock, 256, 5)
+        player0_name = self.receive_string_message(player0_sock, 256, self.WAITING_FOR_NAME_TIME)
+        player1_name = self.receive_string_message(player1_sock, 256, self.WAITING_FOR_NAME_TIME)
 
         # check for errors in client sent data
         if player0_name == None:
-            print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 0}), Colors.WARNING))
+            print(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 0}))
             return None
         if player1_name == None:
-            print(Colors.colored_string(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 1}), Colors.WARNING))
+            print(self.FAILED_CONNECTION_MESSAGE.format(**{"number": 1}))
             return None
-        if player0_name[len(player0_name) - 1] != '\n':
-            print(Colors.colored_string(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 0}), Colors.WARNING))
+        if player0_name[len(player0_name) - 1] != self.END_OF_NAME:
+            print(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 0}))
             return None
-        if player1_name[len(player1_name) - 1] != '\n':
-            print(Colors.colored_string(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 1}), Colors.WARNING))
+        if player1_name[len(player1_name) - 1] != self.END_OF_NAME:
+            print(self.CLIENT_BAD_NAME_MESSAGE.format(**{"number": 1}))
             return None
 
         return (player0_name, player1_name)
 
-    def send_string_message(self, socket, message, encoding='utf8'):
-        socket.send(message.encode(encoding))
+    def send_string_message(self, socket, message, encoding=ENCODING):
+        try:
+            socket.send(message.encode(encoding))
+        except error:
+            print(self.CLIENT_PREMATURE_DISCONNECTION_MESSAGE)
 
-    def receive_string_message(self, socket, size, timeout=None, encoding='utf8'):
+    def receive_string_message(self, socket, size, timeout=None, encoding=ENCODING):
         if timeout != None:
             socket.settimeout(timeout)
         try:
