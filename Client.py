@@ -19,7 +19,7 @@ class Client:
     CONNECTION_ERROR = Colors.colored_string("We are sorry to inform you that there were a connection problems ): ", Colors.WARNING)
     YOU_PRESSED = Colors.colored_string("\nYou pressed: {char}\n",Colors.UNDERLINE)
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
-    TEAM_NAME = "IdanDavid@@\n"
+    TEAM_NAME = "pACKistan\n"
     PACKING_FORMAT = '=IbH'
     DEV_IP_PREFIX = '172.1.'
     TEST_IP_PREFIX = '172.99.'
@@ -111,7 +111,7 @@ class Client:
                 if (server_addr!=None):
                     # second stage: try to connect to serve
                     comp = server_addr.split('.')
-                    server_addr = self.DEV_IP_PREFIX + comp[2] + "." + comp[3]
+                    server_addr = self.TEST_IP_PREFIX + comp[2] + "." + comp[3]
                     self.tcp_socket = socket(AF_INET, SOCK_STREAM)
                     try:
                         self.tcp_socket.connect((server_addr, server_port))

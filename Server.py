@@ -82,7 +82,7 @@ class Server:
         while True:
             if self.WAITING_FOR_PLAYERS is True:
                 self.broadcasting_socket.sendto(pack(self.PACKING_FORMAT, self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.tcp_port),
-                                                (self.DEV_BROADCAST_DEST_IP, self.BROADCAST_DEST_PORT))
+                                                (self.TEST_BROADCAST_DEST_IP, self.BROADCAST_DEST_PORT))
                 time.sleep(self.BROADCAST_TIME_INTERVAL)
             else:
                 time.sleep(1)
@@ -181,7 +181,7 @@ class Server:
             return None
         
 def main():
-    ip = sp.get_if_addr(Server.DEV_NETWORK)
+    ip = sp.get_if_addr(Server.TEST_NETWORK)
     server = Server(ip, 6666, 7777)
     server.run()
 
