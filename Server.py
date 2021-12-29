@@ -23,7 +23,7 @@ class Server:
     DEV_NETWORK = 'eth1'
     TEST_NETWORK = 'eth2'
     ENCODING = 'utf8'
-    PACKING_FORMAT = '=IbH'
+    PACKING_FORMAT = '>IbH' #TODO
     WAITING_FOR_NAME_TIME = 5 # seconds
     END_OF_NAME = '\n'
     SERVER_START_MESSAGE = Colors.colored_string("Server started, listening on IP address ", Colors.HEADER)
