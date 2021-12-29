@@ -10,14 +10,14 @@ from Statistics import Statistics
 
 
 class Server:
-    BROADCAST_DEST_PORT = 13118
+    BROADCAST_DEST_PORT = 13117
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
     PLAYERS_COUNT = 2
     ANSWER_SIZE = 1 # byte
     GAME_DURATION = 10  # seconds
     BROADCAST_TIME_INTERVAL = 1 # seconds
-    BROADCAST_DEST_IP = '255.255.255.255'
+    BROADCAST_DEST_IP = '172.99.255.255'
     DEV_NETWORK = 'eth1'
     TEST_NETWORK = 'eth2'
     ENCODING = 'utf8'
