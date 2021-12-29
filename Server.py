@@ -10,24 +10,26 @@ from Statistics import Statistics
 
 
 class Server:
-    BROADCAST_DEST_PORT = 13117
+    BROADCAST_DEST_PORT = 13118 #TODO
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
     PLAYERS_COUNT = 2
     ANSWER_SIZE = 1 # byte
+    BUFF_SIZE = 512 # bytes
     GAME_DURATION = 10  # seconds
     BROADCAST_TIME_INTERVAL = 1 # seconds
-    BROADCAST_DEST_IP = '172.99.255.255'
+    DEV_BROADCAST_DEST_IP = '172.1.255.255'
+    TEST_BROADCAST_DEST_IP = '172.99.255.255'
     DEV_NETWORK = 'eth1'
     TEST_NETWORK = 'eth2'
     ENCODING = 'utf8'
-    PACKING_FORMAT = 'IbH'
+    PACKING_FORMAT = '=IbH'
     WAITING_FOR_NAME_TIME = 5 # seconds
     END_OF_NAME = '\n'
     SERVER_START_MESSAGE = Colors.colored_string("Server started, listening on IP address ", Colors.HEADER)
-    GAME_WELCOME_MESSAGE = Colors.colored_string("Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}", Colors.OKBLUE)
-    GAME_END_WINNER_MESSAGE = Colors.colored_string("Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}", Colors.OKCYAN)
-    GAME_END_DRAW_MESSAGE = Colors.colored_string("Game over!\nThe correct answer was {answer}!\nWe have a draw!", Colors.OKCYAN)
+    GAME_WELCOME_MESSAGE = "Welcome to Quick Maths.\nPlayer 1: {name0}\nPlayer 2: {name1}\n==\nPlease answer the following question as fast as you can:\n{question}"
+    GAME_END_WINNER_MESSAGE = "Game over!\nThe correct answer was {answer}!\nCongratulations to the winner: {winner}"
+    GAME_END_DRAW_MESSAGE = "Game over!\nThe correct answer was {answer}!\nWe have a draw!"
     GAME_OVER_MESSAGE = Colors.colored_string("Game over, sending out offer requests...", Colors.OKBLUE)
     CLIENT_PREMATURE_DISCONNECTION_MESSAGE = Colors.colored_string("Client prematurely disconnected", Colors.WARNING)
     FAILED_CONNECTION_MESSAGE = Colors.colored_string("Player {number} failed to connect properly. Aborting game.", Colors.WARNING)
@@ -42,10 +44,12 @@ class Server:
         self.broadcasting_socket = socket(AF_INET, SOCK_DGRAM)
         self.broadcasting_socket.setsockopt(SOL_SOCKET, SO_BROADCAST, 1)
         self.server_socket = socket(AF_INET, SOCK_STREAM)
+        self.server_socket.setsockopt(SOL_SOCKET, SO_REUSEADDR, 1)
         self.server_socket.bind((ip, tcp_port))
         self.server_socket.listen(self.PLAYERS_COUNT)
         self.stat = Statistics()
-        print(self.SERVER_START_MESSAGE)
+        welcome_msg = self.SERVER_START_MESSAGE + Colors.colored_string(str(ip), Colors.HEADER)
+        print(welcome_msg)
 
     def close_server(self):
         self.server_socket.close()
@@ -62,7 +66,7 @@ class Server:
                 players_conections = self.listen()
 
                 # wait 10 seconds
-                time.sleep(5)
+                time.sleep(10)
 
                 # begin the game
                 self.game_mode(players_conections)
@@ -78,7 +82,7 @@ class Server:
         while True:
             if self.WAITING_FOR_PLAYERS is True:
                 self.broadcasting_socket.sendto(pack(self.PACKING_FORMAT, self.MAGIC_COOKIE, self.MESSAGE_TYPE, self.tcp_port),
-                                                (self.BROADCAST_DEST_IP, self.BROADCAST_DEST_PORT))
+                                                (self.DEV_BROADCAST_DEST_IP, self.BROADCAST_DEST_PORT))
                 time.sleep(self.BROADCAST_TIME_INTERVAL)
             else:
                 time.sleep(1)
@@ -142,8 +146,8 @@ class Server:
         self.send_string_message(player1_sock, message)
 
     def get_players_names(self, player0_sock, player1_sock):
-        player0_name = self.receive_string_message(player0_sock, 256, self.WAITING_FOR_NAME_TIME)
-        player1_name = self.receive_string_message(player1_sock, 256, self.WAITING_FOR_NAME_TIME)
+        player0_name = self.receive_string_message(player0_sock, self.BUFF_SIZE, self.WAITING_FOR_NAME_TIME)
+        player1_name = self.receive_string_message(player1_sock, self.BUFF_SIZE, self.WAITING_FOR_NAME_TIME)
 
         # check for errors in client sent data
         if player0_name == None:
@@ -168,15 +172,14 @@ class Server:
             print(self.CLIENT_PREMATURE_DISCONNECTION_MESSAGE)
 
     def receive_string_message(self, socket, size, timeout=None, encoding=ENCODING):
-        if timeout != None:
-            socket.settimeout(timeout)
         try:
+            if timeout != None:
+                socket.settimeout(timeout)
             bytes = socket.recv(size)
             return bytes.decode(encoding)
         except error:
             return None
         
-
 def main():
     ip = sp.get_if_addr(Server.DEV_NETWORK)
     server = Server(ip, 6666, 7777)

@@ -20,11 +20,13 @@ class Client:
     YOU_PRESSED = Colors.colored_string("\nYou pressed: {char}\n",Colors.UNDERLINE)
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
     TEAM_NAME = "IdanDavid@@\n"
-    PACKING_FORMAT = 'IbH'
-    UDP_DEST_PORT = 13117
+    PACKING_FORMAT = '=IbH'
+    DEV_IP_PREFIX = '172.1.'
+    TEST_IP_PREFIX = '172.99.'
+    UDP_DEST_PORT = 13118 #TODO
     UTF_FORMAT = 'utf-8'
     TCP_BUFF_SIZE = 1024
-    UDP_BUFF_SIZE = 8
+    UDP_BUFF_SIZE = 7
     MAGIC_COOKIE = 0xabcddcba
     MSG_TYPE = 0x2
     SELECT_TIMEOUT = 0.5
@@ -36,7 +38,6 @@ class Client:
         self.udp_socket.bind(('', self.UDP_DEST_PORT))
         self.tcp_socket = None
     
-       
     # in the first stage the client will receive a udp broadcast, and decrypt it
     def find_offer(self):
         while 1:
@@ -51,7 +52,6 @@ class Client:
                 msg = Colors.colored_string(msg, Colors.OKGREEN)
                 print(msg)
                 return addr[0], server_port
-
 
     def play_game(self):
         sent_length = self.tcp_socket.send(self.TEAM_NAME.encode(self.UTF_FORMAT))
@@ -111,7 +111,7 @@ class Client:
                 if (server_addr!=None):
                     # second stage: try to connect to serve
                     comp = server_addr.split('.')
-                    server_addr = "172.99."+comp[2]+"."+comp[3]
+                    server_addr = self.DEV_IP_PREFIX + comp[2] + "." + comp[3]
                     self.tcp_socket = socket(AF_INET, SOCK_STREAM)
                     try:
                         self.tcp_socket.connect((server_addr, server_port))
