@@ -20,10 +20,10 @@ class Client:
     YOU_PRESSED = Colors.colored_string("\nYou pressed: {char}\n",Colors.UNDERLINE)
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
     TEAM_NAME = "pACKistan\n"
-    PACKING_FORMAT = '=IbH'
+    PACKING_FORMAT = '>IbH' #TODO
     DEV_IP_PREFIX = '172.1.'
     TEST_IP_PREFIX = '172.99.'
-    UDP_DEST_PORT = 13118 #TODO
+    UDP_DEST_PORT = 13117 #TODO
     UTF_FORMAT = 'utf-8'
     TCP_BUFF_SIZE = 1024
     UDP_BUFF_SIZE = 7
@@ -41,7 +41,8 @@ class Client:
     # in the first stage the client will receive a udp broadcast, and decrypt it
     def find_offer(self):
         while 1:
-            data, addr = self.udp_socket.recvfrom(self.UDP_BUFF_SIZE)
+            if self.udp_socket!=None:
+                data, addr = self.udp_socket.recvfrom(self.UDP_BUFF_SIZE)
             try:
                 magic_cookie, msg_type, server_port = unpack(self.PACKING_FORMAT, data)
             except:
