@@ -10,7 +10,7 @@ from Statistics import Statistics
 
 
 class Server:
-    BROADCAST_DEST_PORT = 13118 #TODO
+    BROADCAST_DEST_PORT = 13117 #TODO
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
     PLAYERS_COUNT = 2
