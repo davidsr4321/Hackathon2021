@@ -12,16 +12,16 @@ from Colors import Colors
 
 class Client:
     CLIENT_STARTED_MESSAGE = Colors.colored_string("Client started, listening for offer requests...",Colors.OKCYAN)
-    CLIENT_CONTINUE_MESSAGE = Colors.colored_string("listening for offer requests...",Colors.OKCYAN)
+    CLIENT_CONTINUE_MESSAGE = Colors.colored_string("\nlistening for offer requests...",Colors.OKCYAN)
     LISTENING_MESSAGE = Colors.colored_string("Listening for offer requests...",Colors.OKCYAN)
-    RECEIVED_ADDRESS_MSG = "Received offer from {address},attempting to connect..."
+    RECEIVED_ADDRESS_MSG = "\nReceived offer from {address},attempting to connect...\n"
     FAILED_TO_CONNECT_TO_SERVER = Colors.colored_string("Couldn't connect to server ): ", Colors.WARNING)
     CONNECTION_ERROR = Colors.colored_string("We are sorry to inform you that there were a connection problems ): ", Colors.WARNING)
-    ASK_FOR_NAME = Colors.colored_string("\nplease enter your group name: \n",Colors.UNDERLINE)
+    YOU_PRESSED = Colors.colored_string("\nYou pressed: {char}\n",Colors.UNDERLINE)
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
     TEAM_NAME = "IdanDavid@@\n"
     PACKING_FORMAT = 'IbH'
-    UDP_DEST_PORT = 13117
+    UDP_DEST_PORT = 13118
     UTF_FORMAT = 'utf-8'
     TCP_BUFF_SIZE = 1024
     UDP_BUFF_SIZE = 8
@@ -75,7 +75,11 @@ class Client:
                 for s in readables:
                     if s==sys.stdin:
                         # recieve data from user and send it to the server 
-                        userInput =  sys.stdin.read(1)
+                        userInput = sys.stdin.read(1)
+                        msg = self.YOU_PRESSED
+                        msg = msg.format(**{"char": userInput})
+                        msg = Colors.colored_string(msg, Colors.OKGREEN)
+                        print(msg)
                         self.tcp_socket.send(userInput.encode(self.UTF_FORMAT))
                         break 
                 
@@ -137,7 +141,17 @@ class Client:
                 self.tcp_socket.close()
         except error:
             pass
-        
+
+    def receive_string_message(self, socket, size, timeout=None, encoding=UTF_FORMAT):
+        if timeout != None:
+            socket.settimeout(timeout)
+        try:
+            bytes = socket.recv(size)
+            return bytes.decode(encoding)
+        except error:
+            return None
+
+
 def main():
     client = Client()
     client.run()

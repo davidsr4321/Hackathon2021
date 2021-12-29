@@ -6,9 +6,11 @@ from threading import *
 import scapy.all as sp
 import RandomQuestionGenerator as rqg
 from Colors import Colors
+from Statistics import Statistics
+
 
 class Server:
-    BROADCAST_DEST_PORT = 13117
+    BROADCAST_DEST_PORT = 13118
     MAGIC_COOKIE = 0xabcddcba
     MESSAGE_TYPE = 0X2
     PLAYERS_COUNT = 2
@@ -42,6 +44,7 @@ class Server:
         self.server_socket = socket(AF_INET, SOCK_STREAM)
         self.server_socket.bind((ip, tcp_port))
         self.server_socket.listen(self.PLAYERS_COUNT)
+        self.stat = Statistics()
         print(self.SERVER_START_MESSAGE)
 
     def close_server(self):
@@ -94,6 +97,7 @@ class Server:
     def listen_to_player(self, player_sock, message, answer, player_name, other_player_name ,game_over):
         self.send_string_message(player_sock, message)
         player_answer = self.receive_string_message(player_sock, self.ANSWER_SIZE, self.GAME_DURATION)
+        self.stat.add_key(player_answer)
         if player_answer != None and self.WINNER == None:
             if player_answer == answer:
                 self.WINNER = player_name
@@ -114,6 +118,7 @@ class Server:
         (question, answer) = self.question_generator.generate_random_math_question()
         message = self.GAME_WELCOME_MESSAGE.format(**{"name0": players_names[0], "name1": players_names[1], "question": question})
 
+        self.stat.add_pair(players_names[0].replace('\n', ''),players_names[1].replace('\n', ''))
         # actually perform the game
         game_over = threading.Event()
         thread0 = Thread(target = self.listen_to_player, args = (player0_sock, message, answer, players_names[0], players_names[1], game_over))
@@ -129,9 +134,10 @@ class Server:
     def announce_results(self, answer, player0_sock, player1_sock):
         if self.WINNER != None:
             message = self.GAME_END_WINNER_MESSAGE.format(**{"answer": answer, "winner": self.WINNER})
+            self.stat.add_group_win(self.WINNER.replace('\n', ''))
         else:
             message = self.GAME_END_DRAW_MESSAGE.format(**{"answer": answer})
-
+        message = message + self.stat.get_statistics()
         self.send_string_message(player0_sock, message)
         self.send_string_message(player1_sock, message)
 
