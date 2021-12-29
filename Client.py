@@ -21,7 +21,7 @@ class Client:
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
     TEAM_NAME = "IdanDavid@@\n"
     PACKING_FORMAT = 'IbH'
-    UDP_DEST_PORT = 13118
+    UDP_DEST_PORT = 13117
     UTF_FORMAT = 'utf-8'
     TCP_BUFF_SIZE = 1024
     UDP_BUFF_SIZE = 8
@@ -111,7 +111,7 @@ class Client:
                 if (server_addr!=None):
                     # second stage: try to connect to serve
                     comp = server_addr.split('.')
-                    server_addr = "172.1."+comp[2]+"."+comp[3]
+                    server_addr = "172.99."+comp[2]+"."+comp[3]
                     self.tcp_socket = socket(AF_INET, SOCK_STREAM)
                     try:
                         self.tcp_socket.connect((server_addr, server_port))
