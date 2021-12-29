@@ -21,7 +21,7 @@ class Client:
     EXIT_MSG= Colors.colored_string("thank you for playing !",Colors.HEADER)
     TEAM_NAME = "IdanDavid@@\n"
     PACKING_FORMAT = 'IbH'
-    UDP_DEST_PORT = 13118
+    UDP_DEST_PORT = 13117
     UTF_FORMAT = 'utf-8'
     TCP_BUFF_SIZE = 1024
     UDP_BUFF_SIZE = 8
